@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>六级高频词汇 Pro (全功能云端版)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { extend: { colors: { dark: { bg: '#0f172a', card: '#1e293b', border: '#334155', text: '#f8fafc', muted: '#94a3b8' } } } }
+        }
+    </script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #6366f1; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        /* 隐藏输入框自带的上下箭头，让界面更美观 */
+        input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-dark-bg text-slate-800 dark:text-dark-text transition-colors duration-300">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+
+        // --- 全套图标组件库（已全部找回） ---
+        const IconEye = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>;
+        const IconEyeOff = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"></path><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"></path><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"></path><line x1="2" y1="2" x2="22" y2="22"></line></svg>;
+        const IconLayers = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>;
+        const IconCheck = ({className}) => <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>;
+        const IconBook = () => <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>;
+        const IconUser = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>;
+        const IconVolume = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>;
+        const IconSearch = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>;
+        const IconMoon = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></svg>;
+        const IconSun = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></svg>;
+        const IconReset = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>;
+
+        // --- 登录注册弹窗组件 ---
+        const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
+            const [isLoginView, setIsLoginView] = useState(true);
+            const [username, setUsername] = useState("");
+            const [password, setPassword] = useState("");
+            const [errorMsg, setErrorMsg] = useState("");
+            const [loading, setLoading] = useState(false);
+
+            if (!isOpen) return null;
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setErrorMsg(""); setLoading(true);
+                const endpoint = isLoginView ? '/api/login' : '/api/register';
+                try {
+                    const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.message || "请求失败");
+                    if (isLoginView) { onLoginSuccess(data.token, data.username, data.masteredWords); onClose(); } 
+                    else { alert("注册成功！请登录"); setIsLoginView(true); }
+                } catch (err) { setErrorMsg(err.message); } finally { setLoading(false); }
+            };
+
+            return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="bg-white dark:bg-dark-card w-full max-w-md rounded-2xl shadow-xl overflow-hidden animate-fade-in-up">
+                        <div className="p-6">
+                            <div className="flex justify-between items-center mb-6">
+                                <h2 className="text-2xl font-bold text-slate-800 dark:text-white">{isLoginView ? '欢迎回来 👋' : '创建云端账号 🚀'}</h2>
+                                <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-white">✕</button>
+                            </div>
+                            {errorMsg && <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm">{errorMsg}</div>}
+                            <form onSubmit={handleSubmit} className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">用户名</label>
+                                    <input type="text" required value={username} onChange={e => setUsername(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-dark-border bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="你想叫什么名字？" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">密码</label>
+                                    <input type="password" required value={password} onChange={e => setPassword(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-dark-border bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="设置一个密码" />
+                                </div>
+                                <button disabled={loading} type="submit" className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition shadow-lg shadow-indigo-200 dark:shadow-none disabled:opacity-50">
+                                    {loading ? '处理中...' : (isLoginView ? '立即登录' : '注册账号')}
+                                </button>
+                            </form>
+                            <div className="mt-6 text-center text-sm text-slate-500">
+                                {isLoginView ? "还没账号？" : "已有账号？"}
+                                <button onClick={() => {setIsLoginView(!isLoginView); setErrorMsg("");}} className="text-indigo-600 font-bold ml-1 hover:underline">{isLoginView ? "点我注册" : "去登录"}</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- 单词卡片组件 ---
+        const WordCard = ({ item, isMastered, toggleMastered, globalReveal, speakWord }) => {
+            const [isClicked, setIsClicked] = useState(false);
+            const isShowContent = globalReveal || isClicked;
+
+            return (
+                <div className={`bg-white dark:bg-dark-card rounded-2xl shadow-sm border transition-all duration-300 flex flex-col justify-between overflow-hidden ${isMastered ? 'border-emerald-300 dark:border-emerald-700/50 bg-emerald-50/30 dark:bg-emerald-900/10 opacity-70' : 'border-slate-200 dark:border-dark-border hover:shadow-md hover:-translate-y-0.5 hover:border-indigo-300'}`}>
+                    <div className="p-4 md:p-5 flex-none">
+                        <div className="flex justify-between items-start gap-4">
+                            <h2 className={`text-2xl font-bold tracking-tight break-words mt-1 ${isMastered ? 'text-slate-400 dark:text-slate-500 line-through decoration-emerald-400/50' : 'text-slate-800 dark:text-slate-100'}`}>{item.word}</h2>
+                            <div className="flex flex-col gap-2 flex-shrink-0">
+                                <button onClick={(e) => speakWord(e, item.word)} className="p-1.5 rounded-full text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"><IconVolume /></button>
+                                <button onClick={() => toggleMastered(item.originalIndex)} className={`transition duration-200 p-1.5 rounded-full hover:scale-110 ${isMastered ? 'text-emerald-500 bg-emerald-100 dark:bg-emerald-900/40' : 'text-slate-300 dark:text-slate-600 hover:text-emerald-400 hover:bg-emerald-50'}`}>
+                                    <IconCheck className={isMastered ? 'fill-emerald-100 dark:fill-emerald-900/50' : ''} />
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="p-4 border-t border-slate-100 dark:border-dark-border relative cursor-pointer bg-slate-50/80 dark:bg-slate-800/80 flex-grow flex flex-col justify-center" onClick={() => setIsClicked(!isClicked)}>
+                        <div className={`absolute inset-0 bg-slate-200/95 dark:bg-slate-700/95 backdrop-blur-sm flex items-center justify-center transition-opacity duration-300 z-10 ${isShowContent ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+                            <span className="text-xs md:text-sm text-slate-500 font-medium flex items-center gap-1.5"><IconEye /> 点我切换</span>
+                        </div>
+                        <div className={`transition-opacity duration-300 flex flex-col gap-3 ${isShowContent ? 'opacity-100' : 'opacity-0'}`}>
+                            <div className="text-slate-800 dark:text-slate-200 font-medium text-center text-sm md:text-base">{item.meaning}</div>
+                            {item.notes !== "【注】请结合语境记忆" && (
+                                <div className={`text-sm p-3 rounded-xl border leading-relaxed break-words ${isMastered ? 'bg-transparent border-transparent text-slate-400' : 'bg-white dark:bg-slate-900 text-slate-600 border-slate-200 dark:border-slate-700'}`}>
+                                    {item.notes.split(/(【.*?】)/g).map((part, i) => ( part.startsWith('【') ? <span key={i} className="font-bold text-indigo-500">{part}</span> : <span key={i}>{part}</span> ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- 主程序 ---
+        function App() {
+            const [fullWordsList, setFullWordsList] = useState([]);
+            const [isLoading, setIsLoading] = useState(true);
+            const [globalReveal, setGlobalReveal] = useState(false);
+            const [hideMastered, setHideMastered] = useState(false);
+            const [mastered, setMastered] = useState(new Set());
+            const [searchQuery, setSearchQuery] = useState("");
+            const [currentPage, setCurrentPage] = useState(1);
+            const [darkMode, setDarkMode] = useState(false);
+            const [user, setUser] = useState(null); 
+            const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+            
+            const WORDS_PER_PAGE = 30;
+
+            useEffect(() => {
+                const savedToken = localStorage.getItem('cet6_token');
+                const savedUsername = localStorage.getItem('cet6_username');
+                if (savedToken && savedUsername) setUser({ token: savedToken, username: savedUsername });
+
+                fetch('/api/words')
+                    .then(res => res.json())
+                    .then(data => { setFullWordsList(data); setIsLoading(false); })
+                    .catch(err => { console.error(err); setIsLoading(false); });
+
+                const savedTheme = localStorage.getItem('cet6_theme');
+                if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) setDarkMode(true);
+            }, []);
+
+            useEffect(() => {
+                if (darkMode) { document.documentElement.classList.add('dark'); localStorage.setItem('cet6_theme', 'dark'); }
+                else { document.documentElement.classList.remove('dark'); localStorage.setItem('cet6_theme', 'light'); }
+            }, [darkMode]);
+
+            // 登录/登出处理
+            const handleLoginSuccess = (token, username, userMasteredWords) => {
+                localStorage.setItem('cet6_token', token); localStorage.setItem('cet6_username', username);
+                setUser({ token, username }); setMastered(new Set(userMasteredWords));
+            };
+            const handleLogout = () => {
+                localStorage.removeItem('cet6_token'); localStorage.removeItem('cet6_username');
+                setUser(null); setMastered(new Set());
+            };
+
+            // 发音
+            const speakWord = (e, word) => {
+                e.stopPropagation();
+                if ('speechSynthesis' in window) {
+                    window.speechSynthesis.cancel();
+                    const utterance = new SpeechSynthesisUtterance(word); utterance.lang = 'en-US'; window.speechSynthesis.speak(utterance);
+                }
+            };
+
+            // 切换进度与同步云端
+            const toggleMastered = async (index) => {
+                const newMastered = new Set(mastered);
+                newMastered.has(index) ? newMastered.delete(index) : newMastered.add(index);
+                setMastered(newMastered);
+
+                if (user) {
+                    try {
+                        await fetch('/api/sync', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${user.token}` },
+                            body: JSON.stringify({ masteredWords: Array.from(newMastered) })
+                        });
+                    } catch (err) { console.error("同步失败", err); }
+                } else {
+                    alert("提示：当前为游客模式，刷新页面进度会丢失，请先登录云端账号哦！"); setIsAuthModalOpen(true);
+                }
+            };
+
+            // 一键清除进度 (恢复功能并支持云端清空)
+            const resetProgress = async () => {
+                if(window.confirm("确定要彻底清空所有的背诵进度吗？此操作不可逆哦！")) {
+                    setMastered(new Set());
+                    if (user) {
+                        try {
+                            await fetch('/api/sync', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${user.token}` },
+                                body: JSON.stringify({ masteredWords: [] }) // 传一个空数组给云端
+                            });
+                        } catch (err) { console.error("清空云端失败", err); }
+                    }
+                }
+            };
+
+            // 过滤与分页
+            const filteredWords = useMemo(() => {
+                return fullWordsList.filter(item => {
+                    if (hideMastered && mastered.has(item.originalIndex)) return false;
+                    if (searchQuery.trim() !== "") {
+                        const query = searchQuery.toLowerCase();
+                        return item.word.toLowerCase().includes(query) || item.meaning.includes(query);
+                    }
+                    return true;
+                });
+            }, [hideMastered, mastered, searchQuery, fullWordsList]);
+
+            const totalPages = Math.max(1, Math.ceil(filteredWords.length / WORDS_PER_PAGE));
+            
+            // 确保当前页数不会超出过滤后的总页数
+            useEffect(() => { if (currentPage > totalPages) setCurrentPage(1); }, [totalPages, currentPage]);
+
+            const paginatedWords = filteredWords.slice((currentPage - 1) * WORDS_PER_PAGE, currentPage * WORDS_PER_PAGE);
+
+            // 高级跳转处理逻辑
+            const handlePageJump = (e) => {
+                const value = e.target.value;
+                if (value === "") { setCurrentPage(""); return; } // 允许用户暂时清空输入框
+                let num = parseInt(value, 10);
+                if (isNaN(num)) return;
+                if (num < 1) num = 1;
+                if (num > totalPages) num = totalPages;
+                setCurrentPage(num);
+                window.scrollTo({top: 0, behavior: 'smooth'});
+            };
+
+            if (isLoading) return <div className="min-h-screen flex flex-col items-center justify-center"><div className="loader"></div></div>;
+
+            return (
+                <div className="min-h-screen p-3 md:p-6 lg:p-8">
+                    <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} onLoginSuccess={handleLoginSuccess} />
+                    
+                    <div className="max-w-7xl mx-auto">
+                        <div className="bg-white dark:bg-dark-card p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-dark-border mb-6 transition-colors">
+                            <div className="flex justify-between items-start mb-6">
+                                <div className="flex items-center gap-3 md:gap-4 text-indigo-600 dark:text-indigo-400">
+                                    <div className="hidden sm:block"><IconBook /></div>
+                                    <div>
+                                        <h1 className="text-xl md:text-2xl font-bold text-slate-800 dark:text-dark-text flex items-center flex-wrap gap-2">
+                                            {user ? `欢迎，${user.username} 👋` : '六级高频词汇 Pro'}
+                                        </h1>
+                                        <p className="text-xs md:text-sm text-slate-500 mt-1">云端同步 · {fullWordsList.length} 核心词库</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2 md:gap-4">
+                                    {user ? (
+                                        <button onClick={handleLogout} className="text-sm font-medium text-slate-500 hover:text-red-500 transition">退出</button>
+                                    ) : (
+                                        <button onClick={() => setIsAuthModalOpen(true)} className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-xl transition"><IconUser /> 登录 / 注册</button>
+                                    )}
+                                    <button onClick={() => setDarkMode(!darkMode)} className="p-2.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 transition">{darkMode ? <IconSun /> : <IconMoon />}</button>
+                                </div>
+                            </div>
+                            
+                            {/* 操作栏（找回了所有按钮） */}
+                            <div className="flex flex-col sm:flex-row flex-wrap items-center gap-3 w-full mb-4">
+                                <div className="relative w-full sm:flex-grow">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><IconSearch /></div>
+                                    <input type="text" placeholder="搜索中英文..." className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-dark-border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                                </div>
+                                <div className="flex w-full sm:w-auto gap-2">
+                                    <button onClick={() => setGlobalReveal(!globalReveal)} className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl transition font-medium text-sm ${globalReveal ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400' : 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'}`}>
+                                        {globalReveal ? <IconEyeOff /> : <IconEye />} {globalReveal ? "恢复遮挡" : "取消遮挡"}
+                                    </button>
+                                    <button onClick={() => setHideMastered(!hideMastered)} className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl transition font-medium text-sm ${hideMastered ? 'bg-emerald-500 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'}`}>
+                                        <IconLayers /> {hideMastered ? "看所有" : "藏已会"}
+                                    </button>
+                                    <button onClick={resetProgress} className="flex-none flex items-center justify-center px-3 py-2.5 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl transition hover:bg-red-100">
+                                        <IconReset />
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div>
+                                <div className="flex justify-between text-xs md:text-sm text-slate-500 font-medium mb-2">
+                                    <span>云端总进度: {mastered.size} / {fullWordsList.length}</span>
+                                    <span className="text-emerald-600 font-bold">{Math.round((mastered.size / (fullWordsList.length || 1)) * 100)}%</span>
+                                </div>
+                                <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2.5 overflow-hidden">
+                                    <div className="bg-gradient-to-r from-emerald-400 to-emerald-500 h-full rounded-full transition-all duration-700" style={{ width: `${(mastered.size / (fullWordsList.length || 1)) * 100}%` }}></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 单词卡片网格 */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                            {paginatedWords.map((item) => (
+                                <WordCard key={item._id} item={item} isMastered={mastered.has(item.originalIndex)} toggleMastered={toggleMastered} globalReveal={globalReveal} speakWord={speakWord} />
+                            ))}
+                        </div>
+
+                        {/* 找回的分页器 + 全新的输入跳转功能 */}
+                        {totalPages > 1 && (
+                            <div className="mt-8 mb-4 flex flex-wrap items-center justify-center gap-3 md:gap-4 bg-white dark:bg-dark-card py-3 px-4 md:px-6 rounded-2xl shadow-sm border border-slate-200 dark:border-dark-border w-max mx-auto transition-colors">
+                                <button onClick={() => { setCurrentPage(p => Math.max(1, p - 1)); window.scrollTo({top: 0, behavior: 'smooth'}); }} disabled={currentPage === 1 || currentPage === ""} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition text-slate-600 dark:text-slate-300">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                                </button>
+                                
+                                <div className="flex items-center text-slate-600 dark:text-slate-300 font-medium text-sm md:text-base gap-2">
+                                    <span>第</span>
+                                    <input 
+                                        type="number" 
+                                        min="1" 
+                                        max={totalPages} 
+                                        value={currentPage}
+                                        onChange={handlePageJump}
+                                        className="w-14 text-center bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-dark-border rounded-lg py-1 outline-none focus:ring-2 focus:ring-indigo-500 font-bold"
+                                    />
+                                    <span>页 / 共 {totalPages} 页</span>
+                                </div>
+
+                                <button onClick={() => { setCurrentPage(p => Math.min(totalPages, p + 1)); window.scrollTo({top: 0, behavior: 'smooth'}); }} disabled={currentPage === totalPages || currentPage === ""} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition text-slate-600 dark:text-slate-300">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
