@@ -54,7 +54,12 @@ app.post('/api/login', async (req, res) => {
         // 3. 发放“电子准考证”(Token)，有效期7天
         const token = jwt.sign({ userId: user._id }, 'CET6_SECRET_KEY', { expiresIn: '7d' });
 
-        res.json({ token, username: user.username, masteredWords: user.masteredWords });
+       res.json({ 
+            token, 
+            username: user.username, 
+            masteredWords: user.masteredWords || [], 
+            starredWords: user.starredWords || [] 
+        });
     } catch (err) {
         res.status(500).json({ message: '登录失败' });
     }
