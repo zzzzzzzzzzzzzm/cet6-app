@@ -10,10 +10,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// 测试用的根路由
-app.get('/', (req, res) => {
-    res.send('恭喜！后端服务器正常运行，随时可以发送单词数据！');
-});
 
 // 👇 新增的 API 接口：当前端请求 /api/words 时，把云端的单词发过去
 app.get('/api/words', async (req, res) => {
