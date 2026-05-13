@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>六级高频词汇 Pro (究极完全体)</title>
+    <title>六级高频词汇 Pro (速览特训版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -20,15 +20,19 @@
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
         input[type=number] { -moz-appearance: textfield; }
+        /* 针对速览模式的动画优化 */
+        @keyframes popIn { 0% { opacity: 0; transform: translate(-50%, 5px) scale(0.95); } 100% { opacity: 1; transform: translate(-50%, 0) scale(1); } }
+        .animate-pop-in { animation: popIn 0.15s ease-out forwards; }
     </style>
 </head>
 <body class="bg-slate-50 dark:bg-dark-bg text-slate-800 dark:text-dark-text transition-colors duration-300">
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo } = React;
+        // 👈 注意这里：我们引入了 useRef 这个新工具来实现“长按”计时
+        const { useState, useEffect, useMemo, useRef } = React;
 
-        // --- 完整无缺的图标库 ---
+        // 图标库 (新增了速览列表图标和卡片网格图标)
         const IconEye = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>;
         const IconEyeOff = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"></path><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"></path><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"></path><line x1="2" y1="2" x2="22" y2="22"></line></svg>;
         const IconLayers = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>;
@@ -42,8 +46,9 @@
         const IconReset = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>;
         const IconStar = ({filled}) => <svg className={filled ? "fill-amber-400 text-amber-400" : "text-slate-300"} xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>;
         const IconShuffle = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>;
+        const IconList = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>;
+        const IconGrid = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>;
 
-        // --- 登录注册弹窗组件 (保持不变) ---
         const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
             const [isLoginView, setIsLoginView] = useState(true);
             const [username, setUsername] = useState("");
@@ -98,9 +103,8 @@
             );
         };
 
-        // --- 单词卡片组件 (点击翻转、星星、对号、发音全都在这！) ---
         const WordCard = ({ item, isMastered, isStarred, toggleMastered, toggleStarred, globalReveal, speakWord }) => {
-            const [isClicked, setIsClicked] = useState(false); // 控制单个单词的翻转记忆
+            const [isClicked, setIsClicked] = useState(false);
             const isShowContent = globalReveal || isClicked;
 
             return (
@@ -119,7 +123,6 @@
                             </div>
                         </div>
                     </div>
-
                     <div className="p-4 border-t border-slate-100 dark:border-dark-border relative cursor-pointer bg-slate-50/80 dark:bg-slate-800/80 flex-grow flex flex-col justify-center" onClick={() => setIsClicked(!isClicked)}>
                         <div className={`absolute inset-0 bg-slate-200/95 dark:bg-slate-700/95 backdrop-blur-sm flex items-center justify-center transition-opacity duration-300 z-10 ${isShowContent ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
                             <span className="text-xs md:text-sm text-slate-500 font-medium flex items-center gap-1.5"><IconEye /> 点我切换显示/隐藏</span>
@@ -137,7 +140,6 @@
             );
         };
 
-        // --- 主程序 ---
         function App() {
             const [fullWordsList, setFullWordsList] = useState([]);
             const [isLoading, setIsLoading] = useState(true);
@@ -146,7 +148,7 @@
             const [user, setUser] = useState(null); 
             const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
             
-            // 所有功能状态全部在线！
+            // 状态控制大盘
             const [globalReveal, setGlobalReveal] = useState(false);
             const [hideMastered, setHideMastered] = useState(false);
             const [showStarredOnly, setShowStarredOnly] = useState(false);
@@ -155,6 +157,11 @@
             const [currentPage, setCurrentPage] = useState(1);
             const [darkMode, setDarkMode] = useState(false);
             
+            // 👈 新增状态：控制界面是否为“速览模式”以及记录正在“长按”的单词索引
+            const [isListView, setIsListView] = useState(false);
+            const [longPressIdx, setLongPressIdx] = useState(null);
+            const pressTimer = useRef(null); // 这是一个看不见的计时器
+
             const WORDS_PER_PAGE = 30;
 
             useEffect(() => {
@@ -176,7 +183,6 @@
                 else { document.documentElement.classList.remove('dark'); localStorage.setItem('cet6_theme', 'light'); }
             }, [darkMode]);
 
-            // 登录与登出
             const handleLoginSuccess = (token, username, userMasteredWords, userStarredWords) => {
                 localStorage.setItem('cet6_token', token); localStorage.setItem('cet6_username', username);
                 setUser({ token, username }); 
@@ -188,7 +194,6 @@
                 setUser(null); setMastered(new Set()); setStarred(new Set());
             };
 
-            // 发音
             const speakWord = (e, word) => {
                 e.stopPropagation();
                 if ('speechSynthesis' in window) {
@@ -197,7 +202,6 @@
                 }
             };
 
-            // 数据同步与状态切换
             const syncData = async (newMastered, newStarred) => {
                 if (!user) return;
                 try {
@@ -226,15 +230,29 @@
                 if (!user) { alert("提示：请先登录以保存您的专属生词本！"); setIsAuthModalOpen(true); }
             };
 
-            // 找回的一键重置功能
             const resetProgress = async () => {
                 if(window.confirm("确定要彻底清空所有的背诵进度吗？此操作不可逆哦！")) {
                     setMastered(new Set());
-                    syncData(new Set(), null); // 同步空进度给云端
+                    syncData(new Set(), null); 
                 }
             };
 
-            // 核心算法：集所有过滤、搜索、乱序于一身
+            // 👈 核心处理：当你按下屏幕/鼠标时的计时逻辑
+            const handlePressStart = (e, idx) => {
+                // 如果是移动端触屏，开始倒数 400 毫秒
+                pressTimer.current = setTimeout(() => {
+                    setLongPressIdx(idx); // 时间到了，触发长按状态
+                    // 如果手机支持震动，给一点轻微的触觉反馈
+                    if (window.navigator && window.navigator.vibrate) window.navigator.vibrate(50);
+                }, 400); 
+            };
+            
+            const handlePressEnd = () => {
+                // 当你松开手指/鼠标，或者移开位置时，马上掐断计时器，并隐藏小窗
+                if (pressTimer.current) clearTimeout(pressTimer.current);
+                setLongPressIdx(null);
+            };
+
             const displayList = useMemo(() => {
                 let list = [...fullWordsList];
                 if (hideMastered) list = list.filter(w => !mastered.has(w.originalIndex));
@@ -256,7 +274,6 @@
             useEffect(() => { if (currentPage > totalPages) setCurrentPage(1); }, [totalPages, currentPage]);
             const paginatedWords = displayList.slice((currentPage - 1) * WORDS_PER_PAGE, currentPage * WORDS_PER_PAGE);
 
-            // 跳转
             const handlePageJump = (e) => {
                 const val = e.target.value;
                 if(val === "") { setCurrentPage(""); return; }
@@ -273,7 +290,7 @@
                     <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} onLoginSuccess={handleLoginSuccess} />
                     
                     <div className="max-w-7xl mx-auto">
-                        <div className="bg-white dark:bg-dark-card p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-dark-border mb-6 transition-colors">
+                        <div className="bg-white dark:bg-dark-card p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-dark-border mb-6 transition-colors relative z-20">
                             <div className="flex justify-between items-start mb-6">
                                 <div className="flex items-center gap-3 md:gap-4 text-indigo-600 dark:text-indigo-400">
                                     <div className="hidden sm:block"><IconBook /></div>
@@ -294,23 +311,26 @@
                                 </div>
                             </div>
                             
-                            {/* 所有控制按钮全军出击！ */}
                             <div className="flex flex-col sm:flex-row flex-wrap items-center gap-3 w-full mb-4">
                                 <div className="relative w-full sm:flex-grow">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><IconSearch /></div>
                                     <input type="text" placeholder="搜索中英文..." className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-dark-border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                                 </div>
                                 <div className="flex w-full sm:w-auto gap-2 flex-wrap">
-                                    <button onClick={() => setGlobalReveal(!globalReveal)} className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl transition font-medium text-sm ${globalReveal ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400' : 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'}`}>
-                                        {globalReveal ? <IconEyeOff /> : <IconEye />} {globalReveal ? "恢复遮挡" : "取消遮挡"}
+                                    {/* 👈 这是控制速览模式的开关按钮 */}
+                                    <button onClick={() => setIsListView(!isListView)} className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl transition font-medium text-sm ${isListView ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 dark:shadow-none' : 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'}`}>
+                                        {isListView ? <IconGrid /> : <IconList />} {isListView ? "卡片模式" : "速览模式"}
                                     </button>
-                                    <button onClick={() => setIsShuffled(!isShuffled)} className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl transition font-medium text-sm ${isShuffled ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'}`}>
+                                    <button onClick={() => setGlobalReveal(!globalReveal)} className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl transition font-medium text-sm disabled:opacity-50 ${globalReveal ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'}`} disabled={isListView}>
+                                        {globalReveal ? <IconEyeOff /> : <IconEye />} 取消遮挡
+                                    </button>
+                                    <button onClick={() => setIsShuffled(!isShuffled)} className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl transition font-medium text-sm ${isShuffled ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 dark:shadow-none' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'}`}>
                                         <IconShuffle /> {isShuffled ? "恢复顺序" : "随机乱序"}
                                     </button>
-                                    <button onClick={() => setShowStarredOnly(!showStarredOnly)} className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl transition font-medium text-sm ${showStarredOnly ? 'bg-amber-500 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'}`}>
+                                    <button onClick={() => setShowStarredOnly(!showStarredOnly)} className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl transition font-medium text-sm ${showStarredOnly ? 'bg-amber-500 text-white shadow-md shadow-amber-200 dark:shadow-none' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'}`}>
                                         <IconStar filled={showStarredOnly} /> {showStarredOnly ? "显示全部" : "只看生词"}
                                     </button>
-                                    <button onClick={() => setHideMastered(!hideMastered)} className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl transition font-medium text-sm ${hideMastered ? 'bg-emerald-500 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'}`}>
+                                    <button onClick={() => setHideMastered(!hideMastered)} className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl transition font-medium text-sm ${hideMastered ? 'bg-emerald-500 text-white shadow-md shadow-emerald-200 dark:shadow-none' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'}`}>
                                         <IconLayers /> {hideMastered ? "显示全部" : "藏已会"}
                                     </button>
                                     <button onClick={resetProgress} className="flex-none flex items-center justify-center px-3 py-2.5 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl transition hover:bg-red-100">
@@ -320,16 +340,43 @@
                             </div>
                         </div>
 
-                        {/* 单词卡片网格 */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                            {paginatedWords.map((item) => (
-                                <WordCard key={item._id} item={item} isMastered={mastered.has(item.originalIndex)} isStarred={starred.has(item.originalIndex)} toggleMastered={toggleMastered} toggleStarred={toggleStarred} globalReveal={globalReveal} speakWord={speakWord} />
-                            ))}
-                        </div>
+                        {/* 👈 核心改造：渲染判断，根据 isListView 决定渲染成网格还是列表 */}
+                        {isListView ? (
+                            <div className="bg-white dark:bg-dark-card p-4 md:p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-dark-border flex flex-wrap gap-2 md:gap-3 relative z-10 min-h-[300px] content-start">
+                                {paginatedWords.map(w => (
+                                    <div key={w._id} className="relative select-none"
+                                         onPointerDown={(e) => handlePressStart(e, w.originalIndex)}
+                                         onPointerUp={handlePressEnd}
+                                         onPointerLeave={handlePressEnd}
+                                         onContextMenu={(e) => e.preventDefault()}
+                                    >
+                                        <span className={`px-4 py-2 text-sm md:text-base font-medium rounded-xl border block transition-colors duration-200 ${mastered.has(w.originalIndex) ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-transparent line-through' : (starred.has(w.originalIndex) ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-700/50' : 'bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 border-slate-200 dark:border-slate-700')}`}>
+                                            {w.word}
+                                        </span>
+                                        
+                                        {/* 这是一个长按后浮出来的翻译小窗 */}
+                                        {longPressIdx === w.originalIndex && (
+                                            <div className="absolute z-50 bottom-[calc(100%+8px)] left-1/2 -translate-x-1/2 w-48 p-3 bg-slate-800 dark:bg-slate-700 text-white rounded-xl shadow-xl animate-pop-in pointer-events-none">
+                                                <div className="font-bold text-indigo-300 mb-1">{w.word}</div>
+                                                <div className="text-sm leading-relaxed">{w.meaning}</div>
+                                                <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-slate-800 dark:bg-slate-700 rotate-45 rounded-sm"></div>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            // 原本的卡片模式代码
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                {paginatedWords.map((item) => (
+                                    <WordCard key={item._id} item={item} isMastered={mastered.has(item.originalIndex)} isStarred={starred.has(item.originalIndex)} toggleMastered={toggleMastered} toggleStarred={toggleStarred} globalReveal={globalReveal} speakWord={speakWord} />
+                                ))}
+                            </div>
+                        )}
 
-                        {/* 翻页器与页码跳转 */}
+                        {/* 翻页器 */}
                         {totalPages > 1 && (
-                            <div className="mt-8 mb-4 flex flex-wrap items-center justify-center gap-3 md:gap-4 bg-white dark:bg-dark-card py-3 px-4 md:px-6 rounded-2xl shadow-sm border border-slate-200 dark:border-dark-border w-max mx-auto transition-colors">
+                            <div className="mt-8 mb-4 flex flex-wrap items-center justify-center gap-3 md:gap-4 bg-white dark:bg-dark-card py-3 px-4 md:px-6 rounded-2xl shadow-sm border border-slate-200 dark:border-dark-border w-max mx-auto transition-colors relative z-0">
                                 <button onClick={() => { setCurrentPage(p => Math.max(1, p - 1)); window.scrollTo({top: 0, behavior: 'smooth'}); }} disabled={currentPage === 1 || currentPage === ""} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition text-slate-600 dark:text-slate-300">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
                                 </button>
