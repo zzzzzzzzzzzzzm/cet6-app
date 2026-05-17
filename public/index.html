@@ -176,21 +176,24 @@
 
             const WORDS_PER_PAGE = 30;
 
-            useEffect(() => {
+           useEffect(() => {
                 const savedToken = localStorage.getItem('cet6_token');
                 const savedUsername = localStorage.getItem('cet6_username');
                 
-                // 🚀 核心修复 1：进页面瞬间读取本地单词，消灭一直转圈圈！
-                const cachedWords = localStorage.getItem('cet6_words_cache');
-                if (cachedWords) {
-                    setFullWordsList(JSON.parse(cachedWords));
-                    setIsLoading(false);
-                }
+                // 👇 废物补救 1：加了 try-catch。以前只要本地缓存有一丁点错误，整个网页直接死机，永远转圈！
+                try {
+                    const cachedWords = localStorage.getItem('cet6_words_cache');
+                    if (cachedWords) {
+                        const parsed = JSON.parse(cachedWords);
+                        if (parsed.length > 0) {
+                            setFullWordsList(parsed);
+                            setIsLoading(false);
+                        }
+                    }
+                } catch(e) { localStorage.removeItem('cet6_words_cache'); }
 
                 if (savedToken && savedUsername) {
                     setUser({ token: savedToken, username: savedUsername });
-                    
-                    // 🚀 核心修复 2：进页面瞬间调取本地保存的进度残影！保证进度绝不为0！
                     const cachedProgress = localStorage.getItem('cet6_progress');
                     if (cachedProgress) {
                         try {
@@ -201,7 +204,6 @@
                         } catch(e) {}
                     }
 
-                    // 背后再去悄悄问服务器有没有更新，即使等1分钟也不影响你立刻开始背单词！
                     fetch('/api/user', { headers: { 'Authorization': `Bearer ${savedToken}` } })
                         .then(res => res.ok ? res.json() : null)
                         .then(data => { 
@@ -209,20 +211,22 @@
                                 setMastered(new Set(data.masteredWords || [])); 
                                 setStarred(new Set(data.starredWords || [])); 
                                 setHistory(data.masteryHistory || []);
-                                // 覆写本地最新进度
                                 localStorage.setItem('cet6_progress', JSON.stringify(data));
                             }
                         }).catch(err => console.log('等待云端唤醒中...'));
                 }
                 
-                // 背后静默获取最新单词本
+                // 👇 废物补救 2：加了 finally()。以前没数据回来圈圈就永远不消失。现在不管死活，强制砸碎加载圈圈！
                 fetch('/api/words')
-                    .then(res => res.json())
+                    .then(res => { if(!res.ok) throw new Error('服务器挂了'); return res.json(); })
                     .then(data => { 
-                        setFullWordsList(data); 
-                        localStorage.setItem('cet6_words_cache', JSON.stringify(data));
-                        setIsLoading(false); 
-                    }).catch(err => console.log('等待词库唤醒中...'));
+                        if(Array.isArray(data) && data.length > 0) {
+                            setFullWordsList(data); 
+                            localStorage.setItem('cet6_words_cache', JSON.stringify(data));
+                        }
+                    })
+                    .catch(err => console.log('词库请求中断:', err))
+                    .finally(() => setIsLoading(false)); // 核心：强制解除加载
 
                 const savedTheme = localStorage.getItem('cet6_theme');
                 if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) setDarkMode(true);
