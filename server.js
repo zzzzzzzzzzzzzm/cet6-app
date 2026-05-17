@@ -35,9 +35,27 @@ app.post('/api/login', async (req, res) => {
             username: user.username, 
             masteredWords: user.masteredWords || [], 
             starredWords: user.starredWords || [],
-            masteryHistory: user.masteryHistory || [] // 🌟 发送历史数据给前端
+            masteryHistory: user.masteryHistory || [] 
         });
     } catch (err) { res.status(500).json({ message: '登录失败' }); }
+});
+
+// 🌟🌟🌟 新增：每次重新打开App时，专门用来拉取云端真实数据的通道！
+app.get('/api/user', async (req, res) => {
+    try {
+        const token = req.headers.authorization?.split(' ')[1];
+        if (!token) return res.status(401).json({ message: '未登录' });
+        
+        const decoded = jwt.verify(token, 'CET6_SECRET_KEY');
+        const user = await User.findById(decoded.userId);
+        if (!user) return res.status(404).json({ message: '找不到用户' });
+        
+        res.json({
+            masteredWords: user.masteredWords || [],
+            starredWords: user.starredWords || [],
+            masteryHistory: user.masteryHistory || []
+        });
+    } catch (err) { res.status(401).json({ message: '登录已过期' }); }
 });
 
 app.post('/api/sync', async (req, res) => {
@@ -47,18 +65,14 @@ app.post('/api/sync', async (req, res) => {
         const { masteredWords, starredWords } = req.body;
         
         const user = await User.findById(decoded.userId);
-        
-        // 🌟 智能逻辑：对比出哪些是新勾选的“已掌握”单词
         const currentMastered = new Set(user.masteredWords);
         const newWords = masteredWords.filter(idx => !currentMastered.has(idx));
         
-        // 如果有新词学会，加入历史记录
         if (newWords.length > 0) {
             const newHistoryEntries = newWords.map(idx => ({ wordIndex: idx, date: new Date() }));
             user.masteryHistory.push(...newHistoryEntries);
         }
         
-        // 如果是清空操作
         if (masteredWords.length === 0) user.masteryHistory = [];
 
         user.masteredWords = masteredWords;

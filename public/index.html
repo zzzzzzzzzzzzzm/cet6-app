@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>六级词汇 Pro (最终巅峰版)</title>
+    <title>六级词汇 Pro (数据永固版)</title>
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#4f46e5">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -176,10 +176,34 @@
 
             const WORDS_PER_PAGE = 30;
 
+            // 🌟🌟🌟 核心 Bug 修复：页面一加载，不仅读取 token，还要向后端要最新的真实进度！
             useEffect(() => {
                 const savedToken = localStorage.getItem('cet6_token');
                 const savedUsername = localStorage.getItem('cet6_username');
-                if (savedToken && savedUsername) setUser({ token: savedToken, username: savedUsername });
+                
+                if (savedToken && savedUsername) {
+                    setUser({ token: savedToken, username: savedUsername });
+                    // 发起自动数据拉取请求
+                    fetch('/api/user', { headers: { 'Authorization': `Bearer ${savedToken}` } })
+                        .then(res => {
+                            if (!res.ok) throw new Error('Token无效或已过期');
+                            return res.json();
+                        })
+                        .then(data => {
+                            // 成功拿到云端最新数据，重新覆盖本地状态！
+                            setMastered(new Set(data.masteredWords || []));
+                            setStarred(new Set(data.starredWords || []));
+                            setHistory(data.masteryHistory || []);
+                        })
+                        .catch(err => {
+                            console.error('自动读取进度失败，请重新登录:', err);
+                            // 如果 Token 坏了，自动登出防止假登录
+                            localStorage.removeItem('cet6_token');
+                            localStorage.removeItem('cet6_username');
+                            setUser(null);
+                        });
+                }
+                
                 fetch('/api/words').then(res => res.json()).then(data => { setFullWordsList(data); setIsLoading(false); });
                 const savedTheme = localStorage.getItem('cet6_theme');
                 if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) setDarkMode(true);
@@ -298,7 +322,6 @@
                                 </div>
                             </div>
 
-                            {/* 完整热力图 */}
                             <Heatmap history={history} />
                             
                             <div className="flex flex-col sm:flex-row flex-wrap items-center gap-3 w-full mb-4">
@@ -313,13 +336,11 @@
                                     <button onClick={() => setIsShuffled(!isShuffled)} className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl transition font-medium text-sm disabled:opacity-50 ${isShuffled ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'}`} disabled={isQuizMode}><IconShuffle /> {isShuffled ? "有序" : "乱序"}</button>
                                     <button onClick={() => setShowStarredOnly(!showStarredOnly)} className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl transition font-medium text-sm ${showStarredOnly ? 'bg-amber-500 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'}`}><IconStar filled={showStarredOnly} /> {showStarredOnly ? "全部" : "生词"}</button>
                                     <button onClick={() => setHideMastered(!hideMastered)} className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl transition font-medium text-sm disabled:opacity-50 ${hideMastered ? 'bg-emerald-500 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'}`} disabled={isQuizMode}><IconLayers /> {hideMastered ? "全部" : "藏已会"}</button>
-                                    {/* 重置按钮回来啦！ */}
                                     <button onClick={resetProgress} className="flex-none flex items-center justify-center px-3 py-2.5 bg-red-50 text-red-600 rounded-xl transition hover:bg-red-100"><IconReset /></button>
                                 </div>
                             </div>
                         </div>
 
-                        {/* 渲染判断：测验 vs 学习板 */}
                         {isQuizMode ? (
                             <div className="bg-white dark:bg-dark-card p-6 md:p-12 rounded-2xl shadow-sm border border-slate-200 dark:border-dark-border flex flex-col items-center justify-center min-h-[400px]">
                                 {displayList.length < 4 ? (
@@ -342,10 +363,8 @@
                                 ) : <div className="loader"></div>}
                             </div>
                         ) : (
-                            // 学习板：监听手势滑动
                             <div onTouchStart={handleTouchStart} onTouchEnd={(e) => handleTouchEnd(e, totalPages)} className="w-full">
                                 {isListView ? (
-                                    // 速览模式
                                     <div className="bg-white dark:bg-dark-card p-4 md:p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap gap-2 md:gap-3 min-h-[300px] content-start">
                                         {paginatedWords.map(w => (
                                             <div key={w._id} className="relative select-none" onPointerDown={(e) => handlePressStart(e, w.originalIndex)} onPointerUp={handlePressEnd} onPointerLeave={handlePressEnd} onContextMenu={(e) => e.preventDefault()}>
@@ -359,7 +378,6 @@
                                         ))}
                                     </div>
                                 ) : (
-                                    // 卡片模式
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                                         {paginatedWords.map((item) => (
                                             <WordCard key={item._id} item={item} isMastered={mastered.has(item.originalIndex)} isStarred={starred.has(item.originalIndex)} toggleMastered={toggleMastered} toggleStarred={toggleStarred} globalReveal={globalReveal} speakWord={speakWord} />
@@ -367,7 +385,6 @@
                                     </div>
                                 )}
 
-                                {/* 翻页器（去掉了强行回顶部的 window.scrollTo） */}
                                 {totalPages > 1 && (
                                     <div className="mt-8 mb-4 flex flex-wrap items-center justify-center gap-3 md:gap-4 bg-white dark:bg-dark-card py-3 px-4 md:px-6 rounded-2xl shadow-sm border w-max mx-auto">
                                         <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1 || currentPage === ""} className="p-2 rounded-full hover:bg-slate-100 disabled:opacity-30 transition"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
