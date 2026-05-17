@@ -1,16 +1,13 @@
-const CACHE_NAME = 'cet6-pro-cache-v1';
+const CACHE_NAME = 'cet6-pro-cache-v2';
 
-// 安装时：强制立即接管
+// 安装时：强制立即接管，并把网页骨架死死锁在手机硬盘里
 self.addEventListener('install', (e) => {
     self.skipWaiting();
-    
-    // 👇 新增下面这段：在安装的瞬间，把网页基础骨架死死锁在手机硬盘里
     e.waitUntil(
         caches.open(CACHE_NAME).then(cache => {
             return cache.addAll(['/', '/index.html']);
         })
     );
-    
     console.log('[Service Worker] 安装并接管完成');
 });
 
@@ -19,22 +16,27 @@ self.addEventListener('activate', (e) => {
     e.waitUntil(clients.claim());
 });
 
-// 拦截请求核心逻辑
+// 拦截请求核心逻辑：提速钥匙
 self.addEventListener('fetch', (e) => {
-    // ⚠️ 登录、同步、拉取单词等 API 请求必须实时联网，绝对不能缓存！
+    // 1. API 接口必须走网络，绝不缓存！
     if (e.request.url.includes('/api/')) return;
 
-    // 其他的静态文件（Babel, React, Tailwind, HTML）全部走缓存优先策略
+    // 2. 其他静态文件走缓存优先策略
     e.respondWith(
-        caches.match(e.request).then((cachedResponse) => {
-            // 如果手机缓存里有这个文件，直接 0.01 秒返回！
+        caches.match(e.request, { ignoreSearch: true }).then((cachedResponse) => {
+            // 只要保险箱里有，直接 0.01 秒返回！
             if (cachedResponse) {
                 return cachedResponse;
             }
-            // 如果没有，再去联网下载，并偷偷存一份进缓存
+            
+            // 如果没匹配上，但你是在访问网页，强行给你本地的 index.html
+            if (e.request.mode === 'navigate') {
+                return caches.match('/index.html');
+            }
+            
+            // 3. 其他没缓存的资源，去网络拿并悄悄存一份进缓存
             return fetch(e.request).then((response) => {
-                // 确保只缓存成功的请求
-                if (!response || response.status !== 200 || response.type !== 'basic' && response.type !== 'cors') {
+                if (!response || response.status !== 200 || (response.type !== 'basic' && response.type !== 'cors')) {
                     return response;
                 }
                 const responseClone = response.clone();
@@ -42,7 +44,7 @@ self.addEventListener('fetch', (e) => {
                     cache.put(e.request, responseClone);
                 });
                 return response;
-            });
+            }).catch(() => {});
         })
     );
 });
