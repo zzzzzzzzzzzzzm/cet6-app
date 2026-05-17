@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>六级词汇 Pro (数据永固版)</title>
+    <title>六级词汇 Pro (极速秒开版)</title>
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#4f46e5">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -176,35 +176,34 @@
 
             const WORDS_PER_PAGE = 30;
 
-            // 🌟🌟🌟 核心 Bug 修复：页面一加载，不仅读取 token，还要向后端要最新的真实进度！
             useEffect(() => {
                 const savedToken = localStorage.getItem('cet6_token');
                 const savedUsername = localStorage.getItem('cet6_username');
                 
+                // 🌟 数据秒开逻辑：先读取本地缓存的单词列表（如果有的话）
+                const cachedWords = localStorage.getItem('cet6_words_cache');
+                if (cachedWords) {
+                    setFullWordsList(JSON.parse(cachedWords));
+                    setIsLoading(false); // 瞬间取消加载圈圈！
+                }
+
                 if (savedToken && savedUsername) {
                     setUser({ token: savedToken, username: savedUsername });
-                    // 发起自动数据拉取请求
                     fetch('/api/user', { headers: { 'Authorization': `Bearer ${savedToken}` } })
-                        .then(res => {
-                            if (!res.ok) throw new Error('Token无效或已过期');
-                            return res.json();
-                        })
-                        .then(data => {
-                            // 成功拿到云端最新数据，重新覆盖本地状态！
-                            setMastered(new Set(data.masteredWords || []));
-                            setStarred(new Set(data.starredWords || []));
-                            setHistory(data.masteryHistory || []);
-                        })
-                        .catch(err => {
-                            console.error('自动读取进度失败，请重新登录:', err);
-                            // 如果 Token 坏了，自动登出防止假登录
-                            localStorage.removeItem('cet6_token');
-                            localStorage.removeItem('cet6_username');
-                            setUser(null);
-                        });
+                        .then(res => { if (!res.ok) throw new Error('Token无效'); return res.json(); })
+                        .then(data => { setMastered(new Set(data.masteredWords || [])); setStarred(new Set(data.starredWords || [])); setHistory(data.masteryHistory || []); })
+                        .catch(err => { localStorage.removeItem('cet6_token'); localStorage.removeItem('cet6_username'); setUser(null); });
                 }
                 
-                fetch('/api/words').then(res => res.json()).then(data => { setFullWordsList(data); setIsLoading(false); });
+                // 🌟 后台静默对账：再去云端拉取一次最新单词表，替换本地
+                fetch('/api/words')
+                    .then(res => res.json())
+                    .then(data => { 
+                        setFullWordsList(data); 
+                        localStorage.setItem('cet6_words_cache', JSON.stringify(data)); // 更新缓存
+                        setIsLoading(false); 
+                    });
+
                 const savedTheme = localStorage.getItem('cet6_theme');
                 if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) setDarkMode(true);
             }, []);
