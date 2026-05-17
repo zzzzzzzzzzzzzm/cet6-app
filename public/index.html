@@ -209,12 +209,18 @@
                         .then(res => res.ok ? res.json() : null)
                         .then(data => { 
                             if(data) {
-                                // 核心防覆盖：如果本地打的勾比云端多，说明是云端延迟了，绝对不准用云端覆盖本地！
                                 setMastered(currentLocal => {
                                     const cloudMastered = data.masteredWords || [];
-                                    if (currentLocal.size > cloudMastered.length) return currentLocal; // 保留本地
                                     
-                                    // 只有云端数据更多时，才更新本地
+                                    // 🌟 强行反推：如果本地进度比云端多，说明是云端太慢了！
+                                    if (currentLocal.size > cloudMastered.length) {
+                                        // 绝对不准云端覆盖本地，还要立刻把本地的进度【糊到云端脸上】强行让它保存！
+                                        const localP = JSON.parse(localStorage.getItem('cet6_progress') || '{}');
+                                        fetch('/api/sync', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${savedToken}` }, body: JSON.stringify({ masteredWords: Array.from(currentLocal), starredWords: localP.starredWords || [] }) }).catch(()=>{});
+                                        return currentLocal;
+                                    }
+                                    
+                                    // 只有在你在其他手机上背了新词（云端更多）时，才同步给这台手机
                                     setStarred(new Set(data.starredWords || [])); 
                                     setHistory(data.masteryHistory || []);
                                     localStorage.setItem('cet6_progress', JSON.stringify(data));
@@ -273,7 +279,19 @@
 
             const syncData = async (newMastered, newStarred) => {
                 if (!user) return;
-                try { await fetch('/api/sync', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${user.token}` }, body: JSON.stringify({ masteredWords: Array.from(newMastered || mastered), starredWords: Array.from(newStarred || starred) }) }); } catch (err) {}
+                // 🌟 核心防抖救场：如果你在快速点点点，就取消排队的网络请求
+                if (window.syncTimer) clearTimeout(window.syncTimer);
+                
+                // 等你停手 2 秒后，只发【一次】网络请求。再也不会堵死手机网络通道！
+                window.syncTimer = setTimeout(async () => {
+                    try { 
+                        await fetch('/api/sync', { 
+                            method: 'POST', 
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${user.token}` }, 
+                            body: JSON.stringify({ masteredWords: Array.from(newMastered || mastered), starredWords: Array.from(newStarred || starred) }) 
+                        }); 
+                    } catch (err) {}
+                }, 2000);
             };
 
             const toggleMastered = (index) => {
