@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>六级词汇 Pro (极速秒开版)</title>
+    <title>六级词汇 Pro (数据永固版)</title>
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#4f46e5">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -180,29 +180,49 @@
                 const savedToken = localStorage.getItem('cet6_token');
                 const savedUsername = localStorage.getItem('cet6_username');
                 
-                // 🌟 数据秒开逻辑：先读取本地缓存的单词列表（如果有的话）
+                // 🚀 核心修复 1：进页面瞬间读取本地单词，消灭一直转圈圈！
                 const cachedWords = localStorage.getItem('cet6_words_cache');
                 if (cachedWords) {
                     setFullWordsList(JSON.parse(cachedWords));
-                    setIsLoading(false); // 瞬间取消加载圈圈！
+                    setIsLoading(false);
                 }
 
                 if (savedToken && savedUsername) {
                     setUser({ token: savedToken, username: savedUsername });
+                    
+                    // 🚀 核心修复 2：进页面瞬间调取本地保存的进度残影！保证进度绝不为0！
+                    const cachedProgress = localStorage.getItem('cet6_progress');
+                    if (cachedProgress) {
+                        try {
+                            const p = JSON.parse(cachedProgress);
+                            setMastered(new Set(p.masteredWords || []));
+                            setStarred(new Set(p.starredWords || []));
+                            setHistory(p.masteryHistory || []);
+                        } catch(e) {}
+                    }
+
+                    // 背后再去悄悄问服务器有没有更新，即使等1分钟也不影响你立刻开始背单词！
                     fetch('/api/user', { headers: { 'Authorization': `Bearer ${savedToken}` } })
-                        .then(res => { if (!res.ok) throw new Error('Token无效'); return res.json(); })
-                        .then(data => { setMastered(new Set(data.masteredWords || [])); setStarred(new Set(data.starredWords || [])); setHistory(data.masteryHistory || []); })
-                        .catch(err => { localStorage.removeItem('cet6_token'); localStorage.removeItem('cet6_username'); setUser(null); });
+                        .then(res => res.ok ? res.json() : null)
+                        .then(data => { 
+                            if(data) {
+                                setMastered(new Set(data.masteredWords || [])); 
+                                setStarred(new Set(data.starredWords || [])); 
+                                setHistory(data.masteryHistory || []);
+                                // 覆写本地最新进度
+                                localStorage.setItem('cet6_progress', JSON.stringify(data));
+                            }
+                        }).catch(err => console.log('等待云端唤醒中...'));
                 }
                 
-                // 🌟 后台静默对账：再去云端拉取一次最新单词表，替换本地
+                // 背后静默获取最新单词本
                 fetch('/api/words')
                     .then(res => res.json())
                     .then(data => { 
                         setFullWordsList(data); 
-                        localStorage.setItem('cet6_words_cache', JSON.stringify(data)); // 更新缓存
+                        localStorage.setItem('cet6_words_cache', JSON.stringify(data));
                         setIsLoading(false); 
-                    });
+                    }).catch(err => console.log('等待词库唤醒中...'));
 
                 const savedTheme = localStorage.getItem('cet6_theme');
                 if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) setDarkMode(true);
@@ -213,12 +233,26 @@
                 else { document.documentElement.classList.remove('dark'); localStorage.setItem('cet6_theme', 'light'); }
             }, [darkMode]);
 
+            // 🚀 核心修复 3：统一将所有进度状态存入本地保险箱
+            const saveProgressLocally = (m, s, h) => {
+                localStorage.setItem('cet6_progress', JSON.stringify({
+                    masteredWords: Array.from(m),
+                    starredWords: Array.from(s),
+                    masteryHistory: h
+                }));
+            };
+
             const handleLoginSuccess = (token, username, userMasteredWords, userStarredWords, userHistory) => {
                 localStorage.setItem('cet6_token', token); localStorage.setItem('cet6_username', username);
                 setUser({ token, username }); 
                 setMastered(new Set(userMasteredWords || [])); setStarred(new Set(userStarredWords || [])); setHistory(userHistory || []);
+                saveProgressLocally(new Set(userMasteredWords || []), new Set(userStarredWords || []), userHistory || []);
             };
-            const handleLogout = () => { localStorage.removeItem('cet6_token'); localStorage.removeItem('cet6_username'); setUser(null); setMastered(new Set()); setStarred(new Set()); setHistory([]); };
+            
+            const handleLogout = () => { 
+                localStorage.removeItem('cet6_token'); localStorage.removeItem('cet6_username'); localStorage.removeItem('cet6_progress');
+                setUser(null); setMastered(new Set()); setStarred(new Set()); setHistory([]); 
+            };
 
             const speakWord = (e, word) => {
                 if(e) e.stopPropagation();
@@ -231,23 +265,34 @@
             };
 
             const toggleMastered = (index) => {
+                if (!user) { setIsAuthModalOpen(true); return; }
                 const next = new Set(mastered);
                 const isAdding = !next.has(index);
                 isAdding ? next.add(index) : next.delete(index);
                 setMastered(next);
-                if (isAdding) setHistory([...history, { wordIndex: index, date: new Date() }]);
+                
+                const newHistory = isAdding ? [...history, { wordIndex: index, date: new Date() }] : history;
+                setHistory(newHistory);
+                
+                saveProgressLocally(next, starred, newHistory); // 立即保存本地！
                 syncData(next, null);
-                if (!user) setIsAuthModalOpen(true);
             };
 
             const toggleStarred = (index) => {
+                if (!user) { setIsAuthModalOpen(true); return; }
                 const next = new Set(starred); next.has(index) ? next.delete(index) : next.add(index);
-                setStarred(next); syncData(null, next);
-                if (!user) setIsAuthModalOpen(true);
+                setStarred(next); 
+                
+                saveProgressLocally(mastered, next, history); // 立即保存本地！
+                syncData(null, next);
             };
 
             const resetProgress = async () => {
-                if(window.confirm("确定要彻底清空所有的背诵进度吗？此操作不可逆哦！")) { setMastered(new Set()); setHistory([]); syncData(new Set(), null); }
+                if(window.confirm("确定要彻底清空所有的背诵进度吗？此操作不可逆哦！")) { 
+                    setMastered(new Set()); setHistory([]); 
+                    saveProgressLocally(new Set(), starred, []);
+                    syncData(new Set(), null); 
+                }
             };
 
             const handlePressStart = (e, idx) => { pressTimer.current = setTimeout(() => { setLongPressIdx(idx); if (window.navigator && window.navigator.vibrate) window.navigator.vibrate(50); }, 400); };
