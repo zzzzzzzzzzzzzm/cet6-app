@@ -64,9 +64,12 @@ app.post('/api/sync', async (req, res) => {
         const decoded = jwt.verify(token, 'CET6_SECRET_KEY');
         const { masteredWords, starredWords } = req.body;
         
-        const user = await User.findById(decoded.userId);
+       const user = await User.findById(decoded.userId);
         const currentMastered = new Set(user.masteredWords);
         const newWords = masteredWords.filter(idx => !currentMastered.has(idx));
+        
+        // 👇 新增这一行：发现老账号没有历史记录字典时，先给它建一个空的，防止崩溃！
+        if (!user.masteryHistory) user.masteryHistory = [];
         
         if (newWords.length > 0) {
             const newHistoryEntries = newWords.map(idx => ({ wordIndex: idx, date: new Date() }));

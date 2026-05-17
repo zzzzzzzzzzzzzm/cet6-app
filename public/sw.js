@@ -3,6 +3,14 @@ const CACHE_NAME = 'cet6-pro-cache-v1';
 // 安装时：强制立即接管
 self.addEventListener('install', (e) => {
     self.skipWaiting();
+    
+    // 👇 新增下面这段：在安装的瞬间，把网页基础骨架死死锁在手机硬盘里
+    e.waitUntil(
+        caches.open(CACHE_NAME).then(cache => {
+            return cache.addAll(['/', '/index.html']);
+        })
+    );
+    
     console.log('[Service Worker] 安装并接管完成');
 });
 
