@@ -68,12 +68,12 @@ app.post('/api/sync', async (req, res) => {
         const currentMastered = new Set(user.masteredWords);
         const newWords = masteredWords.filter(idx => !currentMastered.has(idx));
         
-        // 👇 新增这一行：发现老账号没有历史记录字典时，先给它建一个空的，防止崩溃！
-        if (!user.masteryHistory) user.masteryHistory = [];
-        
+        // 🌟 替换为安全的数组合并逻辑：
+        user.masteryHistory = user.masteryHistory || [];
         if (newWords.length > 0) {
             const newHistoryEntries = newWords.map(idx => ({ wordIndex: idx, date: new Date() }));
-            user.masteryHistory.push(...newHistoryEntries);
+            // 不用 .push，改用安全的 concat 进行合并，绝不崩溃
+            user.masteryHistory = user.masteryHistory.concat(newHistoryEntries);
         }
         
         if (masteredWords.length === 0) user.masteryHistory = [];

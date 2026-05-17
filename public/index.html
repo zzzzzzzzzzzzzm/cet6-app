@@ -16,9 +16,9 @@
             theme: { extend: { colors: { dark: { bg: '#0f172a', card: '#1e293b', border: '#334155', text: '#f8fafc', muted: '#94a3b8' } } } }
         }
     </script>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.staticfile.net/react/18.2.0/umd/react.production.min.js" crossorigin></script>
+    <script src="https://cdn.staticfile.net/react-dom/18.2.0/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://cdn.staticfile.net/babel-standalone/7.23.6/babel.min.js"></script>
     <style>
         body { font-family: -apple-system, sans-serif; -webkit-tap-highlight-color: transparent; overscroll-behavior-x: none; }
         .loader { border: 4px solid #f3f3f3; border-top: 4px solid #6366f1; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto; }
@@ -204,14 +204,22 @@
                         } catch(e) {}
                     }
 
+                    // 🌟 替换为这段防覆盖代码
                     fetch('/api/user', { headers: { 'Authorization': `Bearer ${savedToken}` } })
                         .then(res => res.ok ? res.json() : null)
                         .then(data => { 
                             if(data) {
-                                setMastered(new Set(data.masteredWords || [])); 
-                                setStarred(new Set(data.starredWords || [])); 
-                                setHistory(data.masteryHistory || []);
-                                localStorage.setItem('cet6_progress', JSON.stringify(data));
+                                // 核心防覆盖：如果本地打的勾比云端多，说明是云端延迟了，绝对不准用云端覆盖本地！
+                                setMastered(currentLocal => {
+                                    const cloudMastered = data.masteredWords || [];
+                                    if (currentLocal.size > cloudMastered.length) return currentLocal; // 保留本地
+                                    
+                                    // 只有云端数据更多时，才更新本地
+                                    setStarred(new Set(data.starredWords || [])); 
+                                    setHistory(data.masteryHistory || []);
+                                    localStorage.setItem('cet6_progress', JSON.stringify(data));
+                                    return new Set(cloudMastered);
+                                });
                             }
                         }).catch(err => console.log('等待云端唤醒中...'));
                 }
